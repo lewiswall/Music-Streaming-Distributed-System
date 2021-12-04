@@ -16,6 +16,8 @@ class NodeServerThread (Thread):
         self.parent = parent
         self._outgoing_buffer = queue.Queue()
 
+
+
         events = selectors.EVENT_READ | selectors.EVENT_WRITE
         self._selector.register(self._sock, events, data=None)
 
@@ -49,6 +51,13 @@ class NodeServerThread (Thread):
                 if message := self.parent.PullFromBuffer():
                     self.processBufferMessage(message)
 
+
+                # when 3 nodes register this will call a function from its parent(NodeServer) which sets up services
+                if len(self.parent._nodes) == 3 and not self.parent._processStarted and self.parent.PRIME:
+                    self.parent._processStarted = True
+                    if self.parent._processStarted:
+                        self.parent.startServices()
+
         except KeyboardInterrupt:
             pass
         finally:
@@ -78,6 +87,9 @@ class NodeServerThread (Thread):
                 for a in nodes:
                     message = 'connect,' + a['type'] + ',' + a['host'] + ',' + a['port'] + ','
                     self.postMessage(message)
+            elif recv_data.split(':')[0] == 'start':
+                self.postMessage('ok')
+                print(recv_data)
             else:
                 self.postMessage(recv_data)
 
