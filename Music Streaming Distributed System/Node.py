@@ -40,7 +40,6 @@ class Node:
         parent = 'parent:' + self._host + ':' + str(self._port)
         subprocess.Popen(["Python", "{}".format(file), port, parent])
 
-
     def testForConnection(self):
         a_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         result = a_socket.connect_ex((self._host, self._port))
@@ -71,7 +70,7 @@ class Node:
     def loopForServices(self):
         while True:
             if not self._node._startService:
-                print('empty')
+                pass
             else:
                 print('starting service')
 

@@ -2,6 +2,7 @@ import NodeServerThread
 import socket
 import selectors
 from threading import Thread
+import random
 
 class NodeServer (Thread):
     def __init__(self, host="127.0.0.1", port=31100):
@@ -14,6 +15,8 @@ class NodeServer (Thread):
         self._selector = selectors.DefaultSelector()
         self.PRIME = True       #used to test if the node is the prime node in NodeServerThread
 
+        self._processStarted = False
+
         # Client Threads
         self._modules = []
 
@@ -25,8 +28,7 @@ class NodeServer (Thread):
         self._startService = []
 
         # Used by Prime Node to set up servers
-        self.AUTH = False
-        self.DICT = False
+        self._services = ['SignUp.py', 'Login.py', 'ServiceNode.py']
 
     def _configureServer(self):
         self._listening_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -92,3 +94,21 @@ class NodeServer (Thread):
             print("caught keyboard interrupt, exiting")
         finally:
             self._selector.close()
+
+
+    def startServices(self):
+        i = 0
+        while i < 3:
+            ran = random.randint(0, len(self._nodes) - 1)
+            node = self._nodes[ran]
+            self.serviceMessage(node, self._services[i])
+            i += 1
+
+
+    def serviceMessage(self, node, service):
+        s = socket.socket()
+        message = 'start:' + service
+        s.connect((node['host'], int(node['port'])))
+        s.sendall(message.encode())
+        reply = s.recv(1024)
+        reply = reply.decode()
