@@ -14,14 +14,12 @@ class Node:
         self._primeHost = "127.0.0.1"      # set primePort and primeHost to whatever the address
         self._primePort = 12345            # the first node you run is on
 
-
-
     def createPrimeNode(self):
         server = NodeServer.NodeServer(self._host, self._port)
         server.start()
         self._node = server
         self._node._type = 'prime'
-        self.createProcess('ServiceNode.py', str(self.getRandomPort()), 'ControlNode')
+        self.createProcess('ServiceNode.py', str(self.getRandomPort()), 'ServiceNode')
 
         #just a way to retrieve host computers ip address
         hostname = socket.gethostname()

@@ -25,7 +25,6 @@ if __name__ == "__main__":
             received_data = received_data.decode()
             if(len(received_data) < 8):
                 peer_socket.send(f"username and password must contain at least 8 charecters".encode("utf-8"))
-                sendMessage(usernameOne, pass1)
             else:
                 if(usernameOne is None):
                     usernameOne = received_data
@@ -46,6 +45,7 @@ if __name__ == "__main__":
                         pass2 = received_data
                         peer_socket.send(f"Sign Up Accepted.".encode("utf-8"))
                         sendMessage(usernameOne, pass1, prime)
+                        broadcastUser(prime, usernameOne, pass1)
 
 
             received_data = peer_socket.recv(4096)
@@ -65,17 +65,16 @@ if __name__ == "__main__":
             print('User Not Accepted')
             print(message)
 
-
-
     def listen() -> None:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
             server_port = int(sys.argv[1])
             server_host = sys.argv[2]
             prime = handlePrime()
+            registerSelf(prime, server_host, server_port)
 
             # Avoid "bind() exception: OSError: [Errno 48] Address already in use" error
             server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            server_socket.bind(("127.0.0.1", server_port))
+            server_socket.bind((server_host, server_port))
             server_socket.listen()
 
             while True:
@@ -91,6 +90,20 @@ if __name__ == "__main__":
                       'port': int(prime[2])}
         return primeNode
 
+    def registerSelf(prime, host, port):
+        message = 'service:' + 'SignUp:' + host + ':' + str(port)
+        sendMessage(prime, message)
+
+    def broadcastUser(prime, username, password):
+        message = 'user:' + username + ':' + password
+        sendMessage(prime, message)
+
+    def sendMessage(addr, message):
+        s = socket.socket()
+        s.connect((addr['host'], addr['port']))
+        s.sendall(message.encode())
+        returnMessage = s.recv(1024).decode()
+        print(returnMessage)
 
 
     print('Sign up')

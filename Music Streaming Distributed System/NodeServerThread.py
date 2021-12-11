@@ -71,7 +71,8 @@ class NodeServerThread (Thread):
                 self._selector.unregister(self._sock)
                 self._sock.close()
             elif(recv_data == 'new' and self.parent.PRIME):
-                nodes = self.pullProcessors('service')
+                nodes = self.pullProcessors('ServiceNode')
+                print(nodes)
                 for a in nodes:
                     message = 'connect,' + a['type'] + ',' + a['host'] + ',' + a['port'] + ','
                     self.postMessage(message)
@@ -85,7 +86,9 @@ class NodeServerThread (Thread):
                 service = recv_data.split(':')[1]
                 self.parent._startService.append(service)
             elif recv_data.split(':')[0] == 'service':
-                print(recv_data)
+                service = recv_data.split(":")
+                self.parent.addProcess(service[1], service[2], service[3])
+                self.postMessage('ok')
             else:
                 self.postMessage(recv_data)
 

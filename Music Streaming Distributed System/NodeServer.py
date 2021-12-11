@@ -57,11 +57,17 @@ class NodeServer (Thread):
                    'host': address,
                    'port': port}
         if(process['type'] == 'node'):
-            self._nodes.append(process)
-            print(self._nodes)
+            if process in self._nodes:
+                pass
+            else:
+                self._nodes.append(process)
+                print(self._nodes)
         else:
-            self._addresses.append(process)
-            print(self._addresses)
+            if process in self._addresses:
+                pass
+            else:
+                self._addresses.append(process)
+                print(self._addresses)
 
     def pullProcessors(self, type):     # used by server threads to pull a certain type of processors
         processors = []                 # used to pass connections to clients
