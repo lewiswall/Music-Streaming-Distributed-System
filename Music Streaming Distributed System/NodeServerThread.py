@@ -35,7 +35,6 @@ class NodeServerThread (Thread):
         print("\033[92m" + f"entered run on {self._sock.getsockname()}" + "\033[0m")
         try:
             while self._running:
-
                 # Check for network messages
                 events = self._selector.select(timeout=1)
                 for key, mask in events:
@@ -50,7 +49,6 @@ class NodeServerThread (Thread):
                 # check internal buffers:
                 if message := self.parent.PullFromBuffer():
                     self.processBufferMessage(message)
-
 
                 # when 3 nodes register this will call a function from its parent(NodeServer) which sets up services
                 if len(self.parent._nodes) == 3 and not self.parent._processStarted and self.parent.PRIME:
@@ -79,16 +77,14 @@ class NodeServerThread (Thread):
                     self.postMessage(message)
             elif(recv_data.split(':')[0] == 'node'):
                 node = recv_data.split(':')
-                message = 'ok'
                 self.parent.addProcess('node', node[1], node[2])
-                self.postMessage(message)
-            elif(recv_data == 'auth'):
-                nodes = self.pullProcessors('auth')
-                for a in nodes:
-                    message = 'connect,' + a['type'] + ',' + a['host'] + ',' + a['port'] + ','
-                    self.postMessage(message)
+                self.postMessage('ok')
             elif recv_data.split(':')[0] == 'start':
                 self.postMessage('ok')
+                print(recv_data)
+                service = recv_data.split(':')[1]
+                self.parent._startService.append(service)
+            elif recv_data.split(':')[0] == 'service':
                 print(recv_data)
             else:
                 self.postMessage(recv_data)

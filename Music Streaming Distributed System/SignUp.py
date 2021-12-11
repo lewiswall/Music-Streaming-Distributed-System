@@ -12,12 +12,12 @@ if __name__ == "__main__":
     rand_token = uuid4()
 
 
-    def handle(peer_socket: socket.socket, parent) -> None:             #This handles the sign up stage of the user.
+    def handle(peer_socket: socket.socket, prime) -> None:             #This handles the sign up stage of the user.
         usernameOne = None                                      #When the sign up is complete it will send the info to
         usernameTwo = None                                      #the login server
         pass1 = None
         pass2 = None
-        print(parent)
+        print(prime)
 
         received_data = peer_socket.recv(4096)
         print(received_data)
@@ -45,21 +45,20 @@ if __name__ == "__main__":
                     else:
                         pass2 = received_data
                         peer_socket.send(f"Sign Up Accepted.".encode("utf-8"))
-                        sendMessage(usernameOne, pass1, parent)
+                        sendMessage(usernameOne, pass1, prime)
 
 
             received_data = peer_socket.recv(4096)
 
 
-    def sendMessage(username, password, parent):
+    def sendMessage(username, password, prime):
         s = socket.socket()
-        s.connect((parent['host'], parent['port']))
+        s.connect((prime['host'], prime['port']))
         message = 'user:' + username + ':' + password
         s.sendall(message.encode())
         message = s.recv(1024)
         message = message.decode()
-        print(parent)
-
+        print(prime)
         if (message == 'ok'):
             print('Accepted User')
         else:
@@ -71,7 +70,8 @@ if __name__ == "__main__":
     def listen() -> None:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
             server_port = int(sys.argv[1])
-            parent = handleParent()
+            server_host = sys.argv[2]
+            prime = handlePrime()
 
             # Avoid "bind() exception: OSError: [Errno 48] Address already in use" error
             server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -82,18 +82,17 @@ if __name__ == "__main__":
                 peer_socket, address = server_socket.accept()
                 peer_socket.send(f'What would you like your username to be?'.encode("utf-8"))
 
-                threading.Thread(target=handle, args=[peer_socket, parent]).start()
+                threading.Thread(target=handle, args=[peer_socket, prime]).start()
 
-    def handleParent():
-        parent = sys.argv[2].split(':')
-        parentNode = {'type': parent[0],
-                      'host': parent[1],
-                      'port': int(parent[2])}
-        return parentNode
+    def handlePrime():
+        prime = sys.argv[3].split(':')
+        primeNode = {'type': prime[0],
+                      'host': prime[1],
+                      'port': int(prime[2])}
+        return primeNode
 
 
 
     print('Sign up')
     print(sys.argv[2])
-    print(rand_token)
     threading.Thread(target=listen).start()

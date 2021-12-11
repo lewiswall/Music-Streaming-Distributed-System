@@ -5,18 +5,23 @@ import socket
 import random
 
 class Node:
-    def __init__(self, host="127.0.0.1", port=31259):
+    def __init__(self, host="127.0.0.1", port=12345):   # The host should be set to the address of the computer the node is running on.
         self._host = host
         self._port = port
         self._type = 'node'
         self._node = None
+
+        self._primeHost = "127.0.0.1"      # set primePort and primeHost to whatever the address
+        self._primePort = 12345            # the first node you run is on
+
+
 
     def createPrimeNode(self):
         server = NodeServer.NodeServer(self._host, self._port)
         server.start()
         self._node = server
         self._node._type = 'prime'
-        self.createProcess('ServiceNode.py', str(self.getRandomPort()), 'service')
+        self.createProcess('ServiceNode.py', str(self.getRandomPort()), 'ControlNode')
 
         #just a way to retrieve host computers ip address
         hostname = socket.gethostname()
@@ -37,8 +42,8 @@ class Node:
         self._node.addProcess(type, self._host, port)       # passes addresses to NodeServer Class
 
     def subProcess(self, file, port):           # called by multiprocessing.Process. it creates a process
-        parent = 'parent:' + self._host + ':' + str(self._port)
-        subprocess.Popen(["Python", "{}".format(file), port, parent])
+        prime = 'prime:' + self._host + ':' + str(self._primePort)
+        subprocess.Popen(["Python", "{}".format(file), port, self._host, prime])
 
     def testForConnection(self):
         a_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -53,7 +58,7 @@ class Node:
     #registers a node with the prime node
     def registerNode(self):
         s = socket.socket()  # Create a socket object
-        s.connect(('127.0.0.1', 31259))
+        s.connect((self._primeHost, self._primePort))
         message = 'node:' + self._host + ':' + str(self._port)
         s.sendall(message.encode())
         message = s.recv(1024)
@@ -72,7 +77,10 @@ class Node:
             if not self._node._startService:
                 pass
             else:
-                print('starting service')
+                service = self._node._startService[0]
+                print('SELF: Starting service -> ' + service)
+                self.createProcess(service, str(self.getRandomPort()), service.split('.')[0])
+                self._node._startService.pop(0)
 
 
     def getRandomPort(self):
@@ -84,42 +92,3 @@ class Node:
 if __name__ == "__main__":
     node = Node()
     node.run()
-
-
-
-
-
-
-
-
-
-
-
-
-
-"""
-    A node will represent any item in our distributed system.
-
-    It should be capable of:
-        accepting incoming connections on a known port (NodeServer.py)
-        processing data from that server (NodeServerThread.py)
-
-        Creating connections to other Servers (NodeClient.py)
-
-        We will likely need specialised variants of these - at the moment they just echo data.
-
-        Tasks:
-            Step 1: Create a combined node class that can create servers and clients
-            Step 2: The node should default to a known address, checking for the existance of a prime node
-            Step 3: If there is a prime node, create a client to server connection to it, register ourselves
-            Step 4: Add some kind of functionality to create server/clients on demand
-                prime node sends "CREATE SERVER 127.0.0.1 12345"
-                prime node sends "CONNECT 127.0.0.1 12345"
-                prime node sends "RECONNECT AUTHSERVER 127.0.0.1 12345"
-                etc.
-            Step 5: Create a few simple specialised node classes e.g.
-                echoNode
-                pingNode
-                etc. (these will later replace their functionality with something sensible)
-
-"""

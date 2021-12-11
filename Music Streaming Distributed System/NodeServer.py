@@ -96,15 +96,17 @@ class NodeServer (Thread):
             self._selector.close()
 
 
+    # This is called from a prime node thread. When 3 other nodes connect to it, it picks nodes at random to set up
+    # the services in self._services.
     def startServices(self):
         i = 0
         while i < 3:
-            ran = random.randint(0, len(self._nodes) - 1)
-            node = self._nodes[ran]
+            randomNum = random.randint(0, len(self._nodes) - 1)
+            node = self._nodes[randomNum]
             self.serviceMessage(node, self._services[i])
             i += 1
 
-
+    # This is called from startServices() and is used to send messages to the other nodes to start services
     def serviceMessage(self, node, service):
         s = socket.socket()
         message = 'start:' + service
