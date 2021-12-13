@@ -13,8 +13,6 @@ if __name__ == "__main__":
     logins = [lewis]
     rand_token = uuid4()
 
-
-
     def handle(peer_socket: socket.socket) -> None:
         user1 = None
         password = None
@@ -52,10 +50,13 @@ if __name__ == "__main__":
     def listen() -> None:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
             server_port = int(sys.argv[1])
+            server_host = sys.argv[2]
+            prime = handlePrime()
+            registerSelf(prime, server_host, server_port)
 
             # Avoid "bind() exception: OSError: [Errno 48] Address already in use" error
             server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            server_socket.bind(("127.0.0.1", server_port))
+            server_socket.bind((server_host, server_port))
             server_socket.listen()
 
             while True:
@@ -69,6 +70,25 @@ if __name__ == "__main__":
                     'pass': password}
         logins.append(newLogin)
 
+    def handlePrime():
+        parent = sys.argv[3].split(':')
+        parentNode = {'type': parent[0],
+                      'host': parent[1],
+                      'port': int(parent[2])}
+        return parentNode
+
+    def registerSelf(prime, host, port):
+        message = 'service:' + 'Login:' + host + ':' + str(port)
+        sendMessage(prime, message)
+
+    def sendMessage(addr, message):
+        s = socket.socket()
+        s.connect((addr['host'], addr['port']))
+        s.sendall(message.encode())
+        returnMessage = s.recv(1024).decode()
+        print(returnMessage)
+
+
     print("Login")
-    print(rand_token)
+    print(sys.argv[2])
     threading.Thread(target=listen).start()

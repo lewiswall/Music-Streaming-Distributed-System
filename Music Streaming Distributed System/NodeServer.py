@@ -57,11 +57,17 @@ class NodeServer (Thread):
                    'host': address,
                    'port': port}
         if(process['type'] == 'node'):
-            self._nodes.append(process)
-            print(self._nodes)
+            if process in self._nodes:
+                pass
+            else:
+                self._nodes.append(process)
+                print(self._nodes)
         else:
-            self._addresses.append(process)
-            print(self._addresses)
+            if process in self._addresses:
+                pass
+            else:
+                self._addresses.append(process)
+                print(self._addresses)
 
     def pullProcessors(self, type):     # used by server threads to pull a certain type of processors
         processors = []                 # used to pass connections to clients
@@ -96,15 +102,17 @@ class NodeServer (Thread):
             self._selector.close()
 
 
+    # This is called from a prime node thread. When 3 other nodes connect to it, it picks nodes at random to set up
+    # the services in self._services.
     def startServices(self):
         i = 0
         while i < 3:
-            ran = random.randint(0, len(self._nodes) - 1)
-            node = self._nodes[ran]
+            randomNum = random.randint(0, len(self._nodes) - 1)
+            node = self._nodes[randomNum]
             self.serviceMessage(node, self._services[i])
             i += 1
 
-
+    # This is called from startServices() and is used to send messages to the other nodes to start services
     def serviceMessage(self, node, service):
         s = socket.socket()
         message = 'start:' + service

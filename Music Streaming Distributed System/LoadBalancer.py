@@ -30,10 +30,12 @@ if __name__ == "__main__":
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
             server_port = int(sys.argv[1])
+            server_host = sys.argv[2]
+            prime = handlePrime()
 
             # Avoid "bind() exception: OSError: [Errno 48] Address already in use" error
             server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            server_socket.bind(("127.0.0.1", server_port))
+            server_socket.bind((server_host, server_port))
             server_socket.listen()
 
             while True:
@@ -43,6 +45,13 @@ if __name__ == "__main__":
 
     def sortAddressess(addresses):
         print(addresses)
+
+    def handlePrime():
+        parent = sys.argv[3].split(':')
+        parentNode = {'type': parent[0],
+                      'host': parent[1],
+                      'port': int(parent[2])}
+        return parentNode
 
 
     threading.Thread(target=listen).start()

@@ -64,6 +64,7 @@ class NodeClient (Thread):
         host = address['host']
         port = int(address['port'])
         addr = (host, port)
+        print(addr)
 
         print("starting connection to", addr)
 
@@ -74,12 +75,6 @@ class NodeClient (Thread):
         events = selectors.EVENT_READ | selectors.EVENT_WRITE
         self._selector.register(self._sock, events, data=None)
 
-        print(address['type'])
-        self.firstMessage(address['type'])
-
-    def firstMessage(self, type):
-        if(type == 'node_auth'):
-            self.postMessage("new")
 
     def run(self):
         print("\033[94m" + f"entered run on {self._name}" + "\033[0m")
