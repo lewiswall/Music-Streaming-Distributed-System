@@ -5,6 +5,7 @@ from threading import Thread
 import pyaudio
 import struct
 
+
 class NodeClient (Thread):
     def __init__(self, name, host="127.0.0.1", port=31257):
         Thread.__init__(self)
@@ -16,15 +17,20 @@ class NodeClient (Thread):
         self._selector = selectors.DefaultSelector()
         self._name = name
         self._running = True
+        self._token = None
 
-        #for streaming
+        # for streaming
         self._streaming = False
         self._audio = pyaudio.PyAudio()
         self._stream = None
 
-        #used to reconnect if any faults happen
+        # used to reconnect if any faults happen
         self._lastAddress = None
         self._primeNode = None
+
+        # user authentication components
+        self._userName = None
+        self._token = None
 
         self._outgoing_buffer = queue.Queue()
 
@@ -41,15 +47,14 @@ class NodeClient (Thread):
     def kill_connection(self):
         self._running = False
 
-    def switchConnection(self, type, host, port, key):          # used for closing current connection of client
-        newCon = {'type': type,                                # and then it calls a method to connect to a new
-                   'host': host,                                # process or server
-                   'port': port}
+    def switchconnection(self, processtype, host, port, key):          # used for closing current connection of client
+        newCon = {'type': processtype,  # and then it calls a method to connect to a new
+                  'host': host,  # process or server
+                  'port': port}
 
-        oldCon = {'host': self._host,
+        oldCon = {'type': 'old',
+                  'host': self._host,
                   'port': str(self._port)}
-        print(oldCon)
-        print(newCon)
 
         self._lastAddress = oldCon
 
@@ -57,10 +62,10 @@ class NodeClient (Thread):
         self._selector.unregister(self._sock)
         self._sock.close()
 
-        self.newConnection(newCon)
+        self.newconnection(newCon)
 
-    def newConnection(self, address):                   # this is called by the switch connection method and passes a
-        self._sock = None                               # process object to give the client a new connection to connect to
+    def newconnection(self, address):               # this is called by the switch connection method and passes a
+        self._sock = None                           # process object to give the client a new connection to connect to
         host = address['host']
         port = int(address['port'])
         addr = (host, port)
@@ -74,7 +79,6 @@ class NodeClient (Thread):
 
         events = selectors.EVENT_READ | selectors.EVENT_WRITE
         self._selector.register(self._sock, events, data=None)
-
 
     def run(self):
         print("\033[94m" + f"entered run on {self._name}" + "\033[0m")
@@ -123,9 +127,8 @@ class NodeClient (Thread):
 
                 except socket.error as a:
                     self._streaming = False
-                    print(a)
+                    print("Streaming Complete... Type 'list' to list other sounds you can stream or 'logout' to signout.")
                     break
-
         else:
             print("\033[94m" + f"entered read on {self._name}" + "\033[94m")
             recv_data = self._sock.recv(1024).decode()
@@ -135,8 +138,8 @@ class NodeClient (Thread):
                 if recv_data.split(',')[0] == 'connect':  # connect is the trigger word to switch connection
                     print(recv_data)
                     connection = recv_data.split(',')
-                    self.switchConnection(connection[1], connection[2], connection[3], key)
-                elif (recv_data.split(',')[0] == 'play'):
+                    self.switchconnection(connection[1], connection[2], connection[3], key)
+                elif recv_data.split(',')[0] == 'play':
                     print(recv_data)
                     data = recv_data.split(',')
                     self._stream = self._audio.open(
@@ -146,16 +149,27 @@ class NodeClient (Thread):
                         output=bool(data[3]),
                         frames_per_buffer=int(data[4])
                     )
-
                     self._streaming = True
-
+                elif recv_data == 'loggedin?':
+                    if self._token is None:
+                        self.postmessage('notLoggedIn')
+                    else:
+                        print(self._token)
+                        self.postmessage(str(self._token))
+                elif recv_data == 'type??':
+                    self.postmessage('client')
+                elif recv_data.split(':')[0] == 'token':
+                    recv_data = recv_data.split(':')
+                    self._userName = recv_data[2]
+                    self._token = recv_data[1]
+                elif recv_data == 'removCache':
+                    self._token = None
+                    self._userName = None
 
             if not recv_data:
                 print("closing connection", repr(key))
                 self._selector.unregister(self._sock)
                 self._sock.close()
-
-
 
     def _write(self, key):
         print("\033[94m" + f"entered write on {self._name}" + "\033[0m")
@@ -166,8 +180,5 @@ class NodeClient (Thread):
         if message:
             sent = self._sock.send(message.encode())
 
-    def postMessage(self, message):
+    def postmessage(self, message):
         self._outgoing_buffer.put(message)
-
-
-

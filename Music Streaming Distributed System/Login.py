@@ -1,58 +1,109 @@
-import random
 from uuid import uuid4
+import time
 
 if __name__ == "__main__":
-    import shlex
     import socket
     import sys
     import threading
 
-    lewis = {'user': 'lewiswall',
-              'pass': 'lewiswall'}
-
-    logins = [lewis]
-    rand_token = uuid4()
+    logins = []
+    connections = 0
+    primeNode = ""
+    loadBalancer = False
 
     def handle(peer_socket: socket.socket) -> None:
+        global logins
+        global connections
+        global loadBalancer
+
         user1 = None
-        password = None
-        password1 = None
+        actualPass = None
+        enteredPass = None
 
-        received_data = peer_socket.recv(4096)
-        print(received_data)
-
-        while received_data:
-            received_data = received_data.decode()
-            if(received_data.split(':')[0] == 'user'):
-                login = received_data.split(':')
-                addLogin(login[1], login[2])
-                print(logins)
-            else:
-                if(user1 is None):
-                    for a in logins:
-                        if received_data == a['user']:
-                            user1 = a['user']
-                            password = a['pass']
-                            print("username successfull")
-                            print(user1)
-                            peer_socket.send(f"Enter your password:".encode("utf-8"))
-                elif(password1 is None):
-                    if received_data == password:
-                        print("login sucess")
-                        peer_socket.send(f"Login Successful".encode("utf-8"))
-                    else:
-                        peer_socket.send(f"You have entered the wrong password".encode("utf-8"))
-                        print("pass wrong")
-
-
+        try:
             received_data = peer_socket.recv(4096)
+
+            while received_data:
+                received_data = received_data.decode()
+                if received_data == 'connectionsnow?':
+                    connections = connections - 1
+                    peer_socket.send(str(connections).encode("utf-8"))
+                    loadBalancer = True
+                    break
+                elif received_data == '#info#':
+                    connections = connections - 1
+                    peer_socket.send(str(logins).encode("utf-8"))
+                    break
+
+                elif received_data == 'back':
+                    address = askforaddr(primeNode, 'ControlNode').split(':')
+                    message = 'connect,' + address[0] + ',' + address[1] + ',' + address[2]
+                    connections -= 1
+                    peer_socket.send(message.encode("utf-8"))
+                    break
+                elif received_data.split(':')[0] == 'user':
+                    login = received_data.split(':')
+                    addlogin(login[1], login[2])
+                    connections = connections - 1
+                    peer_socket.send('ok'.encode("utf-8"))
+                    break
+
+                elif received_data.split(':')[0] == 'usertoken':
+                    connections -= 1
+                    received_data = received_data.split(':')
+                    for login in logins:
+                        if login['user'] == received_data[1]:
+                            login['token'] = received_data[2]
+                    break
+                else:
+                    if user1 is None:
+                        userCorrect = False
+                        for a in logins:
+                            if received_data == a['user']:
+                                userCorrect = True
+                                user1 = a['user']
+                                actualPass = a['pass']
+                                peer_socket.send(f"Enter your password:".encode("utf-8"))
+                        if not userCorrect:
+                            peer_socket.send("You have entered the Incorrect Username".encode("utf-8"))
+                    elif enteredPass is None:
+                        if received_data == actualPass:
+                            rand_token = uuid4()
+                            addtoken(user1, rand_token)
+                            message = 'token:' + str(rand_token) + ':' + user1
+                            peer_socket.send(message.encode("utf-8"))
+                            time.sleep(0.5)
+
+                            broadcastusertoken(primeNode, user1, rand_token)
+                            print("login success")
+                            peer_socket.send(f"Login Successful. Redirecting...".encode("utf-8"))
+                            time.sleep(1)
+
+                            address = askforaddr(primeNode, 'ControlNode').split(':')
+                            message = 'connect,' + address[0] + ',' + address[1] + ',' + address[2]
+                            connections -= 1
+                            peer_socket.send(message.encode("utf-8"))
+
+                        else:
+                            peer_socket.send(f"You have entered the wrong password".encode("utf-8"))
+                            print("password wrong")
+
+                received_data = peer_socket.recv(4096)
+        except:
+            connections -= 1
+            print('User Disconnected')
 
     def listen() -> None:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+            global primeNode
+            global loadBalancer
+            global connections
+
             server_port = int(sys.argv[1])
             server_host = sys.argv[2]
-            prime = handlePrime()
-            registerSelf(prime, server_host, server_port)
+            primeNode = handleprime()
+            requestinfo()
+            registerself(primeNode, server_host, server_port)
 
             # Avoid "bind() exception: OSError: [Errno 48] Address already in use" error
             server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -61,34 +112,79 @@ if __name__ == "__main__":
 
             while True:
                 peer_socket, address = server_socket.accept()
-                peer_socket.send(f'What is your username?'.encode("utf-8"))
+                peer_socket.send(f'What is your username? Type "back" to return to the last page '.encode("utf-8"))
+                connections += 1
+
+                if connections == 3:
+                    if not loadBalancer:
+                        registerasfull(primeNode, server_host, server_port)
+                        loadBalancer = True
 
                 threading.Thread(target=handle, args=[peer_socket]).start()
 
-    def addLogin(user, password):
+    def addtoken(user, token):
+        global logins
+        for log in logins:
+            if log['user'] == user:
+                log['token'] = token
+
+
+    def addlogin(user, password):
+        global logins
         newLogin = {'user': user,
-                    'pass': password}
+                    'pass': password,
+                    'token': None}
         logins.append(newLogin)
 
-    def handlePrime():
+    def requestinfo():
+        global logins
+        message = 'addrs:Login'
+        addresses = sendmessage(primeNode, message)           # returns another login address from prime node
+        addresses = eval(addresses)
+
+        if not addresses:
+            pass
+        else:
+            address = addresses[0]
+            message = '#info#'
+            s = socket.socket()
+            s.connect((address['host'], int(address['port'])))
+            s.sendall(message.encode())
+            returnMessage = s.recv(1024).decode()
+            returnMessage = s.recv(1024).decode()
+            logins = eval(returnMessage)
+
+
+    def askforaddr(prime, servicetype):
+        message = 'address:' + servicetype
+        return sendmessage(prime, message)
+
+    def broadcastusertoken(prime, user, token):
+        message = 'usertoken:' + user + ':' + str(token)
+        sendmessage(prime, message)
+
+    def registerasfull(addr, host, port):
+        message = 'max:Login:' + host + ':' + str(port)
+        sendmessage(addr, message)
+
+    def handleprime():
         parent = sys.argv[3].split(':')
         parentNode = {'type': parent[0],
                       'host': parent[1],
                       'port': int(parent[2])}
         return parentNode
 
-    def registerSelf(prime, host, port):
+    def registerself(prime, host, port):
         message = 'service:' + 'Login:' + host + ':' + str(port)
-        sendMessage(prime, message)
+        sendmessage(prime, message)
 
-    def sendMessage(addr, message):
+    def sendmessage(addr, message):
         s = socket.socket()
         s.connect((addr['host'], addr['port']))
         s.sendall(message.encode())
         returnMessage = s.recv(1024).decode()
-        print(returnMessage)
+        return returnMessage
 
 
-    print("Login")
-    print(sys.argv[2])
+    print("Login : " + str(sys.argv[2]) + ':' + sys.argv[1])
     threading.Thread(target=listen).start()
