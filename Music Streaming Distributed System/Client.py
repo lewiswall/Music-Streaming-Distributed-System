@@ -1,7 +1,6 @@
 import NodeClient
 import socket
 
-
 class Client:
     def __init__(self, host="127.0.0.1", port=50000):
         self._host = host
